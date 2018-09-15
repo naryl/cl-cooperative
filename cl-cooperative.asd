@@ -4,5 +4,6 @@
     :pathname "src/"
     :serial t
     :components ((:file "defpackage")
+                 (:file "dev")
                  (:file "pool")
                  (:file "macros")))

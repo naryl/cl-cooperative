@@ -44,6 +44,14 @@
     (bt:condition-wait (cv pool) (lock pool))
     t))
 
+(defun wakeup-all (pool)
+  "Wakes up all non-hibernated threads once"
+  (p "Waking up ~A threads" (length (threads pool)))
+  (dolist (cv (threads pool))
+    (bt:condition-notify cv)
+    (bt:condition-wait (cv pool) (lock pool)))
+  t)
+
 ;;;; Private
 
 (defun hibernate (pool thread)
@@ -66,10 +74,10 @@
     (hibernate *pool* thread)
     (cl-threadpool:add-job (threadpool *pool*)
                            (lambda ()
-                             (setf result (funcall func))
+                             (setf result (multiple-value-list (funcall func)))
                              (unhibernate pool thread)))
     (yield)
-    result))
+    (apply #'values result)))
 
 (defun make-coop (pool func)
   (p "Making cooperative job")
