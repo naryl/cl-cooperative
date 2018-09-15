@@ -47,6 +47,8 @@
 (defun wakeup-all (pool)
   "Wakes up all non-hibernated threads once"
   (p "Waking up ~A threads" (length (threads pool)))
+  (unless (threads pool)
+    (return-from pool nil))
   (dolist (cv (threads pool))
     (bt:condition-notify cv)
     (bt:condition-wait (cv pool) (lock pool)))
