@@ -1,0 +1,33 @@
+
+OS PROCESSES! TONS OF OVERHEAD! DON'T USE UNLESS YOU KNOW WHAT YOU'RE DOING
+
+Pool management:
+
+MAKE-POOL size &key scheduler
+
+START-PENDING-JOBS pool - start jobs planned with RUN
+
+WAKEUP pool - wakeup one job from the pool
+
+WAKEUP-ALL pool - wakeup all jobs in the pool once
+
+RESULT job - get a job's result
+
+User jobs:
+
+RUN lambda - plan starting a new job. It will be started when the main thread calls START-PENDING-JOBS
+
+YIELD - yield for a bit. e.g. to allow planned jobs to run
+
+PAUSE seconds - yield for seconds
+
+WAIT job - yield until job finishes. Return its result
+
+PARALLEL () body - yield until body finishes concurrently.
+body should only read/write its closure, i.e. the thread that waits on it
+
+Simple interface. Uses the same functions/macro as the standard interface's jobs but manages a pool itself so the "Pool management" part is replaced with this:
+
+MAKE-LOOP size - make a loop with thread pool
+
+RUN-LOOP loop - run it until no more jobs left. So, you probably want to add at least one before calling it. Note though that this function can be called multiple times on the same loop.
