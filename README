@@ -15,7 +15,7 @@ RESULT job - get a job's result
 
 User jobs:
 
-RUN lambda - plan starting a new job. It will be started when the main thread calls START-PENDING-JOBS
+RUN (pool?) lambda - plan starting a new job in pool. It will be started when the main thread calls START-PENDING-JOBS
 
 YIELD - yield for a bit. e.g. to allow planned jobs to run
 
@@ -28,6 +28,7 @@ body should only read/write its closure, i.e. the thread that waits on it
 
 Simple interface. Uses the same functions/macro as the standard interface's jobs but manages a pool itself so the "Pool management" part is replaced with this:
 
-MAKE-LOOP size - make a loop with thread pool
+MAKE-EVENT-LOOP size - make a loop with thread pool
 
-RUN-LOOP loop - run it until no more jobs left. So, you probably want to add at least one before calling it. Note though that this function can be called multiple times on the same loop.
+RUN-EVENT-LOOP loop - run it until no more jobs left. So, you probably want to add at least one
+(using RUN) before calling it. Note however that this function can be called multiple times on the same loop.

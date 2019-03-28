@@ -1,7 +1,7 @@
 
 (in-package :cl-cooperative)
 
-(defmacro run ((pool) &body body)
+(defmacro run ((&optional (pool *pool*)) &body body)
   "Run a cooperative job in POOL pausing current thread until the job either
 finishes or YIELDs"
   (alexandria:with-gensyms (job)
@@ -10,8 +10,8 @@ finishes or YIELDs"
        ,job)))
 
 (defmacro parallel (() &body body)
-  "Execute BODY *concurrently* in the current pool and return its result. The current thread will YIELD and not resume until the job is completed."
+  "Execute BODY *in parallel* in the current pool and return its result. The current thread will YIELD and not resume until the job is complete."
   `(progn
      (unless *pool*
-       (error "YIELD-FOR can only be used in a coop thread"))
+       (error "PARALLEL can only be used in a coop thread"))
      (make-concurrent (lambda () ,@body))))

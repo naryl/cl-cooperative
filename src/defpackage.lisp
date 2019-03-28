@@ -19,7 +19,7 @@
 (defpackage cl-cooperative.simple
   (:nicknames :coop)
   (:use :common-lisp :cl-cooperative)
-  (:export #:make-loop #:run-loop
+  (:export #:make-event-loop #:run-event-loop
 
            ;; starting jobs
            #:run #:parallel
