@@ -14,7 +14,9 @@
            #:yield #:pause #:wait
 
            ;; Schedulers
-           #:round-robin-scheduler))
+           #:round-robin-scheduler
+           #:next-thread
+           ))
 
 (defpackage cl-cooperative.simple
   (:nicknames :coop)

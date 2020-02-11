@@ -9,7 +9,7 @@
    (hibernated :accessor hibernated :initform ())
    (threads :accessor threads :initform nil)
    (threads-lock :accessor threads-lock :initform (bt:make-lock "THREADS"))
-   (scheduler :accessor scheduler)
+   (scheduler :initarg :scheduler :accessor scheduler)
    (lock :accessor lock :initform (bt:make-lock "POOL"))
    (cv :accessor cv :initform (bt:make-condition-variable))
    (pending-jobs :accessor pending-jobs :initform nil)))
@@ -26,8 +26,8 @@
 (defun make-pool (size &key (scheduler 'round-robin-scheduler))
   "Create a pool with SIZE os threads"
   (let ((pool (make-instance 'coop-pool
-                             :threadpool (cl-threadpool:make-threadpool size :max-queue-size 0))))
-    (setf (scheduler pool) (make-instance scheduler :pool pool))
+                             :threadpool (cl-threadpool:make-threadpool size :max-queue-size 0)
+                             :scheduler scheduler)))
     (cl-threadpool:start (threadpool pool))
     (bt:acquire-lock (lock pool))
     pool))
@@ -60,22 +60,25 @@
   (when (< (sleep-until coop)
            (get-universal-time))
     (bt:condition-notify (cv coop))
-    (bt:condition-wait (cv pool) (lock pool))
-    t))
+    (bt:condition-wait (cv pool) (lock pool))))
 
 (defun wakeup (pool)
   "Lets a thread determined by the pool's scheduler run"
   (when *pool*
     (error "WAKEUP can only be used in the main thread"))
-  (let ((coop (next-thread (scheduler pool))))
+  (let ((coop (next-thread (scheduler pool) (active-threads pool))))
     (unless coop
       (p "No thread to wake up")
       (return-from wakeup nil))
     (p "Waking up")
-    (loop for i from 0
-       while (< i (length (threads pool)))
-       do (wakeup% pool coop))
-    t))
+    (wakeup% pool coop)))
+
+(defun active-threads (pool)
+  "Returns the list of threads that can run right now"
+  (remove-if (lambda (coop)
+               (> (sleep-until coop)
+                  (get-universal-time)))
+             (threads pool)))
 
 (defun wakeup-all (pool)
   "Wakes up all non-hibernated threads once"
@@ -85,8 +88,7 @@
   (unless (threads pool)
     (return-from wakeup-all nil))
   (dolist (c (threads pool))
-    (wakeup% pool c))
-  t)
+    (wakeup% pool c)))
 
 ;;;; Private
 
@@ -102,16 +104,17 @@
     (push thread (threads pool))
     (deletef (hibernated pool) thread)))
 
-(defun make-concurrent (func)
-  (p "Making concurrent job")
+(defun make-parallel (func)
+  (p "Making parallel job")
   (let ((thread *coop*)
         (pool *pool*)
         (result))
-    (hibernate *pool* thread)
-    (cl-threadpool:add-job (threadpool *pool*)
-                           (lambda ()
-                             (setf result (multiple-value-list (funcall func)))
-                             (unhibernate pool thread)))
+    (hibernate pool thread)
+    (cl-threadpool:add-job
+     (threadpool pool)
+     (lambda ()
+       (setf result (multiple-value-list (funcall func)))
+       (unhibernate pool thread)))
     (yield) ; Will not return until unhibernated
     (apply #'values result)))
 
@@ -143,16 +146,21 @@
 
 ;;;; Scheduler(s)
 
-(defgeneric next-thread (scheduler)
-  (:documentation "Scheduler is any class which stores the pool and has implementation of this generic. Can return NIL to indicate that no threads can run right now."))
+(defgeneric next-thread (scheduler active-threads)
+  (:documentation "Scheduler is any class which implements this generic. Can return NIL to indicate that no threads can run right now.
+`active-threads` is the list of threads that can run right now. Consider the objects opaque."))
 
 (defclass round-robin-scheduler ()
-  ((pool :initarg :pool :accessor pool)
-   (thread-num :accessor thread-num :initform 0)))
+  ((current-thread :accessor current-thread :initform nil)))
 
-(defmethod next-thread ((scheduler round-robin-scheduler))
-  (with-slots (pool thread-num) scheduler
-    (incf thread-num)
-    (when (>= thread-num (length (threads pool)))
-      (setf thread-num 0))
-    (nth thread-num (threads pool))))
+(defmethod next-thread :around (scheduler threads)
+  "If there are no threads to run then don't even ask the scheduler"
+  (declare (ignore scheduler))
+  (when threads
+    (call-next-method)))
+
+(defmethod next-thread ((scheduler round-robin-scheduler) threads)
+  (with-slots (current-thread) scheduler
+    (let ((next-thread (cdr (member current-thread threads))))
+      (setf current-thread (or next-thread (first threads)))
+      current-thread)))

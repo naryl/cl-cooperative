@@ -14,4 +14,4 @@ finishes or YIELDs"
   `(progn
      (unless *pool*
        (error "PARALLEL can only be used in a coop thread"))
-     (make-concurrent (lambda () ,@body))))
+     (make-parallel (lambda () ,@body))))
