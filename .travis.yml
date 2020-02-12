@@ -10,6 +10,7 @@ env:
 matrix:
   allow_failures:
     - env: LISP=ecl
+    - env: LISP=ccl
 
 install:
   # Install cl-travis
