@@ -12,7 +12,7 @@
   :in-order-to ((test-op (test-op "cl-cooperative/tests")))
   :perform (test-op (o s)
              (uiop:symbol-call :fiveam :run!
-                               'cl-cooperative-tests:all-tests)))
+                               (intern "ALL-TESTS" :cl-cooperative-tests))))
 
 (defsystem #:cl-cooperative/tests
   :depends-on (:cl-cooperative :fiveam)
