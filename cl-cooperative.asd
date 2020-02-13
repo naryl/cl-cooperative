@@ -11,6 +11,7 @@
 
   :in-order-to ((test-op (test-op "cl-cooperative/tests")))
   :perform (test-op (o s)
+             (ql:quickload 'fiveam)
              (uiop:symbol-call :fiveam :run!
                                (intern "ALL-TESTS" :cl-cooperative-tests))))
 
