@@ -5,7 +5,7 @@
 
            ;; pool management
            #:wakeup #:wakeup-all #:start-pending-jobs
-           #:result
+           #:result #:wakeup-until-result
 
            ;; starting jobs
            #:run #:parallel

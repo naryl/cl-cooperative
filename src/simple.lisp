@@ -5,5 +5,6 @@
   (make-pool size))
 
 (defun run-event-loop (pool)
-  (loop while (wakeup pool)
-     do (start-pending-jobs pool)))
+  (loop :do (start-pending-jobs pool)
+        :do (wakeup pool)
+        :while (cl-cooperative::threads pool)))

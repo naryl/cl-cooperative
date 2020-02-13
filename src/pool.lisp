@@ -47,6 +47,12 @@
   (setf (sleep-until *coop*) (+ (get-universal-time) seconds))
   (yield))
 
+(defun wakeup-until-result (pool coop)
+  "Run the pool until coop produces a result, then return it"
+  (loop :while (not (slot-boundp coop 'result))
+        :do (wakeup pool))
+  (apply #'values (result coop)))
+
 (defun wait (coop)
   "YIELD until a coop thread finishes"
   (unless *pool*
@@ -71,7 +77,8 @@
       (p "No thread to wake up")
       (return-from wakeup nil))
     (p "Waking up")
-    (wakeup% pool coop)))
+    (wakeup% pool coop)
+    t))
 
 (defun active-threads (pool)
   "Returns the list of threads that can run right now"
@@ -88,7 +95,8 @@
   (unless (threads pool)
     (return-from wakeup-all nil))
   (dolist (c (threads pool))
-    (wakeup% pool c)))
+    (wakeup% pool c))
+  t)
 
 ;;;; Private
 
@@ -148,7 +156,10 @@
 
 (defgeneric next-thread (scheduler active-threads)
   (:documentation "Scheduler is any class which implements this generic. Can return NIL to indicate that no threads can run right now.
-`active-threads` is the list of threads that can run right now. Consider the objects opaque."))
+`active-threads` is the list of threads that can run right now. Consider the objects opaque.")
+  (:method (scheduler threads)
+    (p "WARNING, unknown scheduler: ~S" scheduler)
+    (car threads)))
 
 (defclass round-robin-scheduler ()
   ((current-thread :accessor current-thread :initform nil)))
@@ -160,7 +171,8 @@
     (call-next-method)))
 
 (defmethod next-thread ((scheduler round-robin-scheduler) threads)
-  (with-slots (current-thread) scheduler
-    (let ((next-thread (cdr (member current-thread threads))))
-      (setf current-thread (or next-thread (first threads)))
-      current-thread)))
+  (when threads
+    (with-slots (current-thread) scheduler
+      (let ((next-thread (cdr (member current-thread threads))))
+        (setf current-thread (or next-thread (first threads)))
+        current-thread))))

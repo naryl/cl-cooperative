@@ -7,6 +7,7 @@
                (:file "dev")
                (:file "pool")
                (:file "macros")
+               (:file "simple")
                )
 
   :in-order-to ((test-op (test-op "cl-cooperative/tests"))))
