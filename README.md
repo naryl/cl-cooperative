@@ -14,6 +14,8 @@ exactly one thread is running at any given time, and that no thread is
 preempted arbitrarily. The latter may still happen by threads not
 managed by cl-cooperative.
 
+Currently supported SBCL and CCL on Linux 64. Should work on other OSes too.
+
 Documentation
 =============
 
