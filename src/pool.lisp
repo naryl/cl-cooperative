@@ -169,24 +169,23 @@ ends or it's unhibernated."
         (id (incf *parallel-counter*)))
     (when *in-parallel*
       (error "Can't start parallel in another parallel"))
-    (v:debug :cl-cooperative "[P~A] Making parallel job" id)
     (hibernate pool thread)
     (cl-threadpool:add-job
      (threadpool pool)
      (lambda ()
-       (v:debug :cl-cooperative "[P~A] Starting parallel job" id)
+       (v:debug :cl-cooperative "[P~A] Starting" id)
        (handler-bind ((error 'invoke-debugger))
          (let ((*in-parallel* t))
            (setf result (multiple-value-list
                          (funcall func))))
-         (v:debug :cl-cooperative "[P~A] Parallel finished returning: ~S" id result)
+         (v:debug :cl-cooperative "[P~A] Finished returning: ~S" id result)
          (unhibernate pool thread))))
     (yield) ; Will not return until unhibernated
     (apply #'values result)))
 
 (defun make-coop-thread (pool coop)
   (lambda ()
-    (v:debug :cl-cooperative "[~A] Starting cooperative job" (id coop))
+    (v:debug :cl-cooperative "[~A] Starting" (id coop))
     (let ((*coop* coop)
           (*pool* pool))
       (bt:acquire-lock (lock pool))
@@ -195,7 +194,7 @@ ends or it's unhibernated."
                  (multiple-value-list
                   (handler-bind ((error 'invoke-debugger))
                     (funcall (func coop)))))
-        (v:debug :cl-cooperative "[~A] Cooperative job finished returning: ~S"
+        (v:debug :cl-cooperative "[~A] Finished returning: ~S"
                  (id coop) (result coop))
         ;; Unhibernating threads that WAIT on this one
         (dolist (th (waiting-threads coop))
@@ -207,7 +206,7 @@ ends or it's unhibernated."
         (bt:release-lock (lock pool))))))
 
 (defun plan-coop (pool coop)
-  (v:debug :cl-cooperative "[~A] Planning cooperative job" (id coop))
+  (v:debug :cl-cooperative "[~A] Planning" (id coop))
   (bt:with-lock-held ((threads-lock pool))
     (push coop (pending-jobs pool))))
 

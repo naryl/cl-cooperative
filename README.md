@@ -15,6 +15,7 @@ preempted arbitrarily. The latter may still happen by threads not
 managed by cl-cooperative.
 
 Currently supported SBCL and CCL on Linux 64. Should work on other OSes too.
+Does work on ECL master too, but not on the latest release (16.1.3, 2016-12-19)
 
 Documentation
 =============
