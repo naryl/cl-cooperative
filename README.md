@@ -26,13 +26,13 @@ Pool management
 
 `DESTROY-POOL pool` - Cleans up the thread pool
 
-`WITH-POOL (var size) &body body` - Run `body` with an event loop
+`WITH-POOL (var size) &body body` - Run `body` with a thread pool of size `size` in `var`
 
 `WAKEUP pool` - Wakeup one job from the pool
 
 `WAKEUP-ALL pool` - Wakeup all jobs in the pool once
 
-`WAKEUP-UNTIL-RESULT pool job` - `WAKEUP` until job finishes running
+`WAKEUP-UNTIL-RESULT pool job` - `WAKEUP` until `job` finishes running
 and return its result
 
 Schedulers
@@ -48,9 +48,12 @@ run. `active-threads` is a list of threads that have something to do.
 User jobs
 ---------
 
-`RUN (&optional pool) body` - Plan starting a new job in `pool` (the same pool as
-  the current thread by default). It will be started when the main
-  thread calls `start-pending-jobs`.
+All of these functions/macros can appear inside cooperative threads. In
+addition, `RUN` can be called from any thread if passed the optional parameter
+`pool`.
+
+`RUN (&optional pool) body` - Plan starting a new job in `pool` (the same pool
+  as the current thread's by default).
 
 `YIELD` - Yield for a bit to allow other jobs to run
 
