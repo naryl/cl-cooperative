@@ -1,4 +1,1 @@
 
-SLEEPS SHOULD BE FRACTIONAL. Sleeping by whole seconds is not very useful...
-
-INVOKING DEBUGGER SHOULD BE OPTIONAL. Just like in e.g. Hunchentoot

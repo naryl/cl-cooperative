@@ -1,6 +1,6 @@
 
 (defsystem :cl-cooperative
-  :depends-on (:cl-threadpool :alexandria :verbose)
+  :depends-on (:cl-threadpool :alexandria :verbose :trivial-timers)
   :pathname "src/"
   :serial t
   :components ((:file "defpackage")

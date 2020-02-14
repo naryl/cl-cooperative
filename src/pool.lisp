@@ -3,15 +3,24 @@
 
 (declaim (optimize (speed 0) (debug 3) (safety 3)))
 
+(defvar *debug-on-error* nil)
+
+(defun ts ()
+  "Timestamp in milliseconds"
+  (/ (get-internal-real-time)
+     internal-time-units-per-second))
+
 (defclass coop-pool ()
   ((threadpool :initarg :threadpool :accessor threadpool)
    (hibernated :accessor hibernated :initform ())
    (threads :accessor threads :initform ())
-   (threads-lock :accessor threads-lock :initform (bt:make-lock "THREADS"))
+   (threads-lock :reader threads-lock :initform (bt:make-lock "THREADS"))
    (scheduler :initarg :scheduler :accessor scheduler)
-   (lock :accessor lock :initform (bt:make-lock "POOL"))
-   (cv :accessor cv :initform (bt:make-condition-variable))
-   (pending-jobs :accessor pending-jobs :initform ())))
+   (pending-jobs :accessor pending-jobs :initform ())
+   (lock :reader lock :initform (bt:make-lock "POOL"))
+   (cv :reader cv :initform (bt:make-condition-variable))
+   (unhibernate-cv :reader unhibernate-cv :initform (bt:make-condition-variable))
+   (unhibernate-lock :reader unhibernate-lock :initform (bt:make-lock))))
 
 (defvar *coop-counter* 0)
 
@@ -20,16 +29,13 @@
    (id :reader id :initform (incf *coop-counter*))
    (func :reader func :initarg :func :initform (error "FUNC is mandatory in COOP instances"))
    (result :reader result)
-   (sleep-until :accessor sleep-until :initform 0)
    (waiting-threads :accessor waiting-threads :initform nil)))
 
 (defmethod print-object ((obj coop) stream)
   (print-unreadable-object (obj stream :type t)
     (format stream "[~A]" (id obj))
     (when (slot-boundp obj 'result)
-      (format stream " Returned: ~S" (result obj)))
-    (when (> (sleep-until obj) (get-universal-time))
-      (format stream " Sleeping: ~A" (- (sleep-until obj) (get-universal-time))))))
+      (format stream " Returned: ~S" (result obj)))))
 
 (defvar *coop* nil)
 (defvar *pool* nil)
@@ -71,9 +77,15 @@
   "YIELD for at least designated time"
   (unless *pool*
     (error "PAUSE can only be used in a coop thread"))
-  (setf (sleep-until *coop*)
-        (+ (get-universal-time) seconds))
-  (yield))
+  (let ((pool *pool*)
+        (coop *coop*))
+    (let ((unhibernate-timer
+            (trivial-timers:make-timer (lambda ()
+                                         (unhibernate pool coop))
+                                       :name "Coop pause timer")))
+      (hibernate pool coop)
+      (trivial-timers:schedule-timer unhibernate-timer seconds)
+      (yield))))
 
 (defun wakeup-until-result (pool coop)
   "Run the pool until coop produces a result, then return it"
@@ -93,13 +105,9 @@
   (apply #'values (result coop)))
 
 (defun wakeup% (pool coop)
-  "Wakes up the thread unless it wants to sleep more.
-Sleeping threads are not supposed to be passed to the scheduler so this should never happen"
-  (cond ((< (sleep-until coop)
-            (get-universal-time))
-         (bt:condition-notify (cv coop))
-         (condition-wait (cv pool) (lock pool)))
-        (t (error "Waking up a sleeping thread"))))
+  "Wakes up the thread"
+  (bt:condition-notify (cv coop))
+  (condition-wait (cv pool) (lock pool)))
 
 (defun wakeup (pool)
   "Lets a thread determined by the pool's scheduler run"
@@ -125,16 +133,14 @@ Sleeping threads are not supposed to be passed to the scheduler so this should n
 
 (defun active-threads (pool)
   "Returns the list of threads that can run right now"
-  (let ((ts (get-universal-time)))
-    (remove-if (lambda (coop)
-                 (>= (sleep-until coop) ts))
-               (threads pool))))
+  (threads pool))
 
 (defun wait-for-active-thread (pool)
-  "Sleeps until a thread becomes active. I.e. either its pause time
-ends or it's unhibernated."
+  "Sleeps until a thread becomes active."
   (loop :until (active-threads pool)
-        :do (bt:thread-yield))
+        :do (bt:with-lock-held ((unhibernate-lock pool))
+              (bt:condition-wait (unhibernate-cv pool)
+                                 (unhibernate-lock pool))))
   (values))
 
 (defun wakeup-all (pool)
@@ -159,7 +165,14 @@ ends or it's unhibernated."
   (v:debug :cl-cooperative "[~A] Unhibernating" (id coop))
   (bt:with-lock-held ((threads-lock pool))
     (push coop (threads pool))
-    (deletef (hibernated pool) coop)))
+    (deletef (hibernated pool) coop))
+  (bt:with-lock-held ((unhibernate-lock pool))
+    (bt:condition-notify (unhibernate-cv pool))))
+
+(defun handle-coop-error (e)
+  (if *debug-on-error*
+      (invoke-debugger e)
+      (v:error :cl-cooperative "~S" e)))
 
 (defvar *parallel-counter* 0)
 (defun make-parallel (func)
@@ -174,7 +187,7 @@ ends or it's unhibernated."
      (threadpool pool)
      (lambda ()
        (v:debug :cl-cooperative "[P~A] Starting" id)
-       (handler-bind ((error 'invoke-debugger))
+       (handler-bind ((error 'handle-coop-error))
          (let ((*in-parallel* t))
            (setf result (multiple-value-list
                          (funcall func))))
@@ -188,22 +201,21 @@ ends or it's unhibernated."
     (v:debug :cl-cooperative "[~A] Starting" (id coop))
     (let ((*coop* coop)
           (*pool* pool))
-      (bt:acquire-lock (lock pool))
-      (unwind-protect
-           (setf (slot-value coop 'result)
-                 (multiple-value-list
-                  (handler-bind ((error 'invoke-debugger))
-                    (funcall (func coop)))))
-        (v:debug :cl-cooperative "[~A] Finished returning: ~S"
-                 (id coop) (result coop))
-        ;; Unhibernating threads that WAIT on this one
-        (dolist (th (waiting-threads coop))
-          (unhibernate pool th))
-        ;; Destroying this thread
-        (bt:with-lock-held ((threads-lock pool))
-          (deletef (threads pool) coop))
-        (bt:condition-notify (cv pool))
-        (bt:release-lock (lock pool))))))
+      (bt:with-lock-held ((lock pool))
+        (unwind-protect
+             (setf (slot-value coop 'result)
+                   (multiple-value-list
+                    (handler-bind ((error 'handle-coop-error))
+                      (funcall (func coop)))))
+          (v:debug :cl-cooperative "[~A] Finished returning: ~S"
+                   (id coop) (result coop))
+          ;; Unhibernating threads that WAIT on this one
+          (dolist (th (waiting-threads coop))
+            (unhibernate pool th))
+          ;; Destroying this thread
+          (bt:with-lock-held ((threads-lock pool))
+            (deletef (threads pool) coop))
+          (bt:condition-notify (cv pool)))))))
 
 (defun plan-coop (pool coop)
   (v:debug :cl-cooperative "[~A] Planning" (id coop))

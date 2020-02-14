@@ -23,4 +23,7 @@
            ;; Schedulers
            #:round-robin-scheduler
            #:next-thread
+
+           ;; Settings
+           #:*debug-on-error*
            ))

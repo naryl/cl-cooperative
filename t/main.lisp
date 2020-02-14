@@ -3,6 +3,7 @@
 
 (setf (v:repl-level) :debug)
 (setf (v:repl-categories) '(:cl-cooperative))
+(setf coop:*debug-on-error* t)
 
 (def-suite all-tests
   :description "The master suite of all cl-cooperative tests.")
