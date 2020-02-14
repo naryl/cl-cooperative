@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.com/naryl/cl-cooperative.svg?branch=master)](https://travis-ci.com/naryl/cl-cooperative)
 
-**OS PROCESSES! TONS OF OVERHEAD! DON'T USE UNLESS YOU KNOW WHAT YOU'RE DOING**
+**OS THREADS! TONS OF OVERHEAD! DON'T USE UNLESS YOU KNOW WHAT YOU'RE DOING**
 
 At least there are tests now.
 
