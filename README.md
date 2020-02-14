@@ -2,7 +2,7 @@
 
 **OS PROCESSES! TONS OF OVERHEAD! DON'T USE UNLESS YOU KNOW WHAT YOU'RE DOING**
 
-Also, there are no tests yet.
+At least there are tests now.
 
 Ok... So, what is it for?
 =========================
@@ -20,26 +20,18 @@ Documentation
 Pool management
 ---------------
 
-`MAKE-POOL size &key scheduler` - Creates a cooperative thread pool.
+`MAKE-POOL size &key scheduler` - Creates a cooperative thread pool
 
-`START-PENDING-JOBS pool` - Start jobs planned with RUN
+`DESTROY-POOL pool` - Cleans up the thread pool
+
+`WITH-POOL (var size) &body body` - Run `body` with an event loop
 
 `WAKEUP pool` - Wakeup one job from the pool
 
 `WAKEUP-ALL pool` - Wakeup all jobs in the pool once
 
-`RESULT job` - Get a job's result
-
-Simplified pool management
---------------------------
-
-Use instead of the full API above. It's basically a loop running
-`start-pending-jobs` and `wakeup` until no more jobs left.
-
-`MAKE-EVENT-LOOP size` - Make an event loop with thread pool
-
-`RUN-EVENT-LOOP loop` - Run the loop until no more jobs left. Can be
-called on the same event loop more than once.
+`WAKEUP-UNTIL-RESULT pool job` - `WAKEUP` until job finishes running
+and return its result
 
 Schedulers
 ----------

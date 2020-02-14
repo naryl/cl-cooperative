@@ -1,4 +1,4 @@
 
-Wakeups on empty pools should wait until a thread is unhibernated if
-there's one.
-And wait until a sleeping one ends sleeping if there's one.
+SLEEPS SHOULD BE FRACTIONAL. Sleeping by whole seconds is not very useful...
+
+INVOKING DEBUGGER SHOULD BE OPTIONAL. Just like in e.g. Hunchentoot
